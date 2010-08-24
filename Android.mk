@@ -21,6 +21,8 @@ LOCAL_ARM_MODE := arm
 
 LOCAL_SRC_FILES := \
 	libspeex/mdf.c \
+	libspeex/preprocess.c \
+	libspeex/filterbank.c \
 	libspeex/fftwrap.c \
 	libspeex/smallft.c
 
@@ -28,7 +30,7 @@ LOCAL_MODULE:= libspeex
 
 LOCAL_PRELINK_MODULE := false
 
-LOCAL_CFLAGS+= -DFLOATING_POINT -DEXPORT="" -DUSE_SMALLFT
+LOCAL_CFLAGS+= -DEXPORT= -DFLOATING_POINT -DUSE_SMALLFT -DVAR_ARRAYS
 LOCAL_CFLAGS+= -O3 -fstrict-aliasing -fprefetch-loop-arrays 
 
 LOCAL_C_INCLUDES += \

@@ -28,7 +28,7 @@ LOCAL_SRC_FILES := \
 
 LOCAL_MODULE:= libspeex
 
-LOCAL_PRELINK_MODULE := false
+
 
 LOCAL_CFLAGS+= -DEXPORT= -DFLOATING_POINT -DUSE_SMALLFT -DVAR_ARRAYS
 LOCAL_CFLAGS+= -O3 -fstrict-aliasing -fprefetch-loop-arrays 

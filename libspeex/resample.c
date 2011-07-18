@@ -99,6 +99,10 @@ static void speex_free (void *ptr) {free(ptr);}
 #include "resample_sse.h"
 #endif
 
+#ifdef _USE_NEON
+#include "resample_neon.h"
+#endif
+
 /* Numer of elements to allocate on the stack */
 #ifdef VAR_ARRAYS
 #define FIXED_STACK_ALLOC 8192
@@ -354,11 +358,12 @@ static int resampler_basic_direct_single(SpeexResamplerState *st, spx_uint32_t c
         accum[3] += sinc[j+3]*iptr[j+3];
       }
       sum = accum[0] + accum[1] + accum[2] + accum[3];
+      sum = SATURATE32PSHR(sum, 15, 32767);
 #else
       sum = inner_product_single(sinc, iptr, N);
 #endif
 
-      out[out_stride * out_sample++] = PSHR32(sum, 15);
+      out[out_stride * out_sample++] = sum;
       last_sample += int_advance;
       samp_frac_num += frac_advance;
       if (samp_frac_num >= den_rate)
@@ -464,12 +469,13 @@ static int resampler_basic_interpolate_single(SpeexResamplerState *st, spx_uint3
 
       cubic_coef(frac, interp);
       sum = MULT16_32_Q15(interp[0],accum[0]) + MULT16_32_Q15(interp[1],accum[1]) + MULT16_32_Q15(interp[2],accum[2]) + MULT16_32_Q15(interp[3],accum[3]);
+      sum = SATURATE32PSHR(sum, 15, 32767);
 #else
       cubic_coef(frac, interp);
       sum = interpolate_product_single(iptr, st->sinc_table + st->oversample + 4 - offset - 2, N, st->oversample, interp);
 #endif
       
-      out[out_stride * out_sample++] = PSHR32(sum,15);
+      out[out_stride * out_sample++] = sum;
       last_sample += int_advance;
       samp_frac_num += frac_advance;
       if (samp_frac_num >= den_rate)
@@ -579,7 +585,11 @@ static void update_filter(SpeexResamplerState *st)
    }
    
    /* Choose the resampling type that requires the least amount of memory */
+#ifdef RESAMPLE_FORCE_FULL_SINC_TABLE
+   if (1)
+#else
    if (st->den_rate <= st->oversample)
+#endif
    {
       spx_uint32_t i;
       if (!st->sinc_table)

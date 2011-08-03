@@ -37,61 +37,64 @@
 
 #include <arm_neon.h>
 
-/* NOTE: This code only works with following filter lengths:
-         8 or n*16 (where n = 1,2,3...)
-         The current resampler quality presets follow the above rule.
-*/
-
 #ifdef FIXED_POINT
+
+
 #define OVERRIDE_INNER_PRODUCT_SINGLE
 static inline int32_t inner_product_single(const int16_t *a, const int16_t *b, unsigned int len)
 {
     int32_t ret;
-    if (len > 8) {
-        asm volatile ("      vld1.16 {d16, d17, d18, d19}, [%[a]]!\n"
-                      "      vld1.16 {d20, d21, d22, d23}, [%[b]]!\n"
-                      "      subs %[len], %[len], #16\n"
-                      "      vmull.s16 q0, d16, d20\n"
-                      "      vmlal.s16 q0, d17, d21\n"
-                      "      vmlal.s16 q0, d18, d22\n"
-                      "      vmlal.s16 q0, d19, d23\n"
-                      "      beq 2f\n"
-                      "1:"
-                      "      vld1.16 {d16, d17, d18, d19}, [%[a]]!\n"
-                      "      vld1.16 {d20, d21, d22, d23}, [%[b]]!\n"
-                      "      subs %[len], %[len], #16\n"
-                      "      vmlal.s16 q0, d16, d20\n"
-                      "      vmlal.s16 q0, d17, d21\n"
-                      "      vmlal.s16 q0, d18, d22\n"
-                      "      vmlal.s16 q0, d19, d23\n"
-                      "      bne 1b\n"
-                      "2:"
-                      "      vaddl.s32 q0, d0, d1\n"
-                      "      vadd.s64 d0, d0, d1\n"
-                      "      vqmovn.s64 d0, q0\n"
-                      "      vqrshrn.s32 d0, q0, #15\n"
-                      "      vmov.s16 %[ret],d0[0]\n"
-                      : [ret] "=&r" (ret), [a] "+r" (a), [b] "+r" (b),
-                        [len] "+r" (len)
-                      :
-                      : "cc", "q0",
-                        "d16", "d17", "d18", "d19",
-                        "d20", "d21", "d22", "d23");
-    }
-    else {
-        asm volatile ("vld1.16 {d4, d5}, [%[a]]\n"
-                      "vld1.16 {d6, d7}, [%[b]]\n"
-                      "vmull.s16 q0, d4, d6\n"
-                      "vmlal.s16 q0, d5, d7\n"
-                      "vaddl.s32 q0, d0, d1\n"
-                      "vadd.s64 d0, d0, d1\n"
-                      "vqmovn.s64 d0, q0\n"
-                      "vqrshrn.s32 d0, q0, #15\n"
-                      "vmov.s16 %[ret],d0[0]\n"
-                      : [ret] "=&r" (ret)
-                      : [a] "r" (a), [b] "r" (b)
-                      : "q0", "d4", "d5", "d6", "d7");
-    }
+    uint32_t remainder = len % 16;
+    len = len - remainder;
+
+    asm volatile ("	 cmp %[len], #0\n"
+		  "	 bne 1f\n"
+		  "	 vld1.16 {d16}, [%[a]]!\n"
+		  "	 vld1.16 {d20}, [%[b]]!\n"
+		  "	 subs %[remainder], %[remainder], #4\n"
+		  "	 vmull.s16 q0, d16, d20\n"
+		  "      beq 5f\n"
+		  "	 b 4f\n"
+		  "1:"
+		  "	 vld1.16 {d16, d17, d18, d19}, [%[a]]!\n"
+		  "	 vld1.16 {d20, d21, d22, d23}, [%[b]]!\n"
+		  "	 subs %[len], %[len], #16\n"
+		  "	 vmull.s16 q0, d16, d20\n"
+		  "	 vmlal.s16 q0, d17, d21\n"
+		  "	 vmlal.s16 q0, d18, d22\n"
+		  "	 vmlal.s16 q0, d19, d23\n"
+		  "	 beq 3f\n"
+		  "2:"
+		  "	 vld1.16 {d16, d17, d18, d19}, [%[a]]!\n"
+		  "	 vld1.16 {d20, d21, d22, d23}, [%[b]]!\n"
+		  "	 subs %[len], %[len], #16\n"
+		  "	 vmlal.s16 q0, d16, d20\n"
+		  "	 vmlal.s16 q0, d17, d21\n"
+		  "	 vmlal.s16 q0, d18, d22\n"
+		  "	 vmlal.s16 q0, d19, d23\n"
+		  "	 bne 2b\n"
+		  "3:"
+		  "	 cmp %[remainder], #0\n"
+		  "	 beq 5f\n"
+		  "4:"
+		  "	 vld1.16 {d16}, [%[a]]!\n"
+		  "	 vld1.16 {d20}, [%[b]]!\n"
+		  "	 subs %[remainder], %[remainder], #4\n"
+		  "	 vmlal.s16 q0, d16, d20\n"
+		  "	 bne 4b\n"
+		  "5:"
+		  "	 vaddl.s32 q0, d0, d1\n"
+		  "	 vadd.s64 d0, d0, d1\n"
+		  "	 vqmovn.s64 d0, q0\n"
+		  "	 vqrshrn.s32 d0, q0, #15\n"
+		  "	 vmov.s16 %[ret], d0[0]\n"
+		  : [ret] "=&r" (ret), [a] "+r" (a), [b] "+r" (b),
+		    [len] "+r" (len), [remainder] "+r" (remainder)
+		  :
+		  : "cc", "q0",
+		    "d16", "d17", "d18", "d19",
+		    "d20", "d21", "d22", "d23");
     return ret;
 }
+
 #endif

@@ -181,7 +181,7 @@ static inline float inner_product_single(const float *a, const float *b, unsigne
 		    [len] "+l" (len), [remainder] "+l" (remainder)
 		  :
 		  : "cc", "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8",
-		    "q10", "q11");
+		    "q9", "q10", "q11");
     return ret;
 }
 

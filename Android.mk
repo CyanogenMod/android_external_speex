@@ -51,8 +51,12 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS += -DEXPORT= -DFIXED_POINT -DRESAMPLE_FORCE_FULL_SINC_TABLE
 LOCAL_CFLAGS += -O3 -fstrict-aliasing -fprefetch-loop-arrays
 
+ifeq ($(TARGET_ARCH),arm64)
+$(warning TODOArm64: enable neon in libspeex)
+endif
+
 ifeq ($(ARCH_ARM_HAVE_NEON),true)
-LOCAL_CFLAGS += -D_USE_NEON
+LOCAL_CFLAGS_arm += -D_USE_NEON
 endif
 
 LOCAL_C_INCLUDES += \
